@@ -1,0 +1,9 @@
+main: app.ashcon.architect.ArchitectApp
+name: Architect
+version: 1.0
+author: Ashcon Partovi
+description: Fast and lightweight level design suite
+website: https://github.com/Electroid/architect
+permissions:
+  architect.admin:
+    default: true
