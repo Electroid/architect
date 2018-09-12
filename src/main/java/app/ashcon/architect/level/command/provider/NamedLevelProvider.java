@@ -12,15 +12,17 @@ import org.bukkit.command.CommandSender;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class DynamicLevelProvider implements BukkitProvider<Level> {
+@Singleton
+public class NamedLevelProvider implements BukkitProvider<Level> {
 
-    final LevelStore levelStore;
+    private final LevelStore levelStore;
 
-    @Inject DynamicLevelProvider(LevelStore levelStore) {
+    @Inject NamedLevelProvider(LevelStore levelStore) {
         this.levelStore = levelStore;
     }
 
@@ -33,7 +35,7 @@ public class DynamicLevelProvider implements BukkitProvider<Level> {
     @Override
     public Level get(CommandSender sender, CommandArgs args, List<? extends Annotation> mods) throws ArgumentException, ProvisionException {
         String query = args.next();
-        List<Level> response = search(sender, query, role(mods));
+        List<Level> response = search(sender, query, getRole(mods));
         if (response.isEmpty()) {
             throw new ArgumentException("Could not find any levels named '" + query + "'");
         } else if (response.size() == 1 || response.get(0).getName().equalsIgnoreCase(query)) {
@@ -46,14 +48,14 @@ public class DynamicLevelProvider implements BukkitProvider<Level> {
         }
     }
 
-    protected List<Level> search(CommandSender sender, String query, @Nullable Role role) {
+    private List<Level> search(CommandSender sender, String query, @Nullable Role role) {
         return levelStore.search(query)
                          .stream()
                          .filter(level -> role == null || level.hasRole(role, sender))
                          .collect(Collectors.toList());
     }
 
-    protected Role role(List<? extends Annotation> mods) {
+    private Role getRole(List<? extends Annotation> mods) {
         return mods.stream()
                    .filter(mod -> mod instanceof Require)
                    .findFirst()

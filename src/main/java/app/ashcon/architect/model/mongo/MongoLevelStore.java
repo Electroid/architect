@@ -16,6 +16,7 @@ import com.mongodb.client.model.Sorts;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -24,10 +25,11 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+@Singleton
 public class MongoLevelStore extends MongoModelStore<Level> implements LevelStore {
 
-    protected final GridFSBucket bucket;
-    protected final Level lobby;
+    private final GridFSBucket bucket;
+    private final Level lobby;
 
     @Inject MongoLevelStore(Conversion<Level> conversion, MongoDatabase db, Level lobby) {
         super();
@@ -35,12 +37,12 @@ public class MongoLevelStore extends MongoModelStore<Level> implements LevelStor
         this.bucket = GridFSBuckets.create(db, "worlds");
         this.collection = db.getCollection("levels");
         this.collection.createIndex(Indexes.text("name"));
-        this.lobby = lobby;
+        this.lobby = update(lobby);
     }
 
     @Override
     public Optional<Level> find(String id) {
-        if(id == null || id.equalsIgnoreCase("world")) {
+        if("world".equalsIgnoreCase(id)) {
             return Optional.of(lobby);
         }
         return super.find(id);

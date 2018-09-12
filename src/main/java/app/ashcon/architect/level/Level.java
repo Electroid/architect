@@ -7,9 +7,11 @@ import app.ashcon.architect.model.Model;
 import com.google.gson.annotations.SerializedName;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
+import org.bukkit.block.BlockFace;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -150,11 +152,12 @@ public class Level implements Model {
             world = creator.generator(new ChunkGenerator() {
                 @Override
                 public byte[] generate(World world, Random random, int x, int z) {
-                    return new byte[Integer.MAX_VALUE];
+                    return new byte[Short.MAX_VALUE];
                 }
             }).createWorld();
             world.setAutoSave(false);
             world.setKeepSpawnInMemory(false);
+            world.getBlockAt(getSpawn()).getRelative(BlockFace.DOWN).setType(Material.BEDROCK);
         }
         return world;
     }
@@ -181,6 +184,16 @@ public class Level implements Model {
      */
     public boolean isLocked() {
         return locked != null && locked;
+    }
+
+    /**
+     * Get whether the level is not locked.
+     *
+     * @see #isLocked()
+     * @return Whether the level is not locked.
+     */
+    public boolean isUnlocked() {
+        return !isLocked();
     }
 
     /**
@@ -352,24 +365,6 @@ public class Level implements Model {
     }
 
     /**
-     * Get the initial spawn location of the level.
-     *
-     * @return The initial spawn location.
-     */
-    public Location getLocation() {
-        return getSpawn().toLocation(needWorld());
-    }
-
-    /**
-     * Get the path where the {@link World} should be loaded.
-     *
-     * @return The path where the world is loaded.
-     */
-    public Path getPath() {
-        return Paths.get(Bukkit.getWorldContainer().getAbsolutePath(), getId());
-    }
-
-    /**
      * Get the players that have explicit roles in the level.
      *
      * @see #getRoles()
@@ -408,13 +403,6 @@ public class Level implements Model {
         }
     }
 
-    /**
-     * Save the loaded world and upload to the remote store.
-     */
-    public void save() {
-        needWorld().save();
-    }
-
     @Override
     public int hashCode() {
         return getId().hashCode();
@@ -442,7 +430,7 @@ public class Level implements Model {
 
         public Lobby() {
             super(
-                new UUID(0, 0).toString(),
+                "world",
                 "Lobby",
                 Visibility.PUBLIC,
                 null,
@@ -453,13 +441,26 @@ public class Level implements Model {
         }
 
         @Override
-        public synchronized void commit(String... fields) {
-        }
+        public synchronized void commit(String... fields) {}
 
-        @Nullable
         @Override
         public World tryWorld() {
             return Bukkit.getWorlds().get(0);
+        }
+
+        @Override
+        public boolean hasRole(Role role, CommandSender sender) {
+            return role == Role.VIEWER;
+        }
+
+        @Override
+        public boolean hasRoleExplicitly(Role role, @Nullable String playerId) {
+            return role == Role.VIEWER;
+        }
+
+        @Override
+        public Role getRoleExplicitly(@Nullable String playerId) {
+            return Role.VIEWER;
         }
 
     }

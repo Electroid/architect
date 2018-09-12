@@ -25,6 +25,9 @@ public class MongoModelStore<M extends Model> implements ModelStore<M> {
 
     @Override
     public Optional<M> find(String id) {
+        if(id == null) {
+            return Optional.empty();
+        }
         return requestDocument(collection.find(Filters.eq("_id", id)));
     }
 

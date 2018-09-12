@@ -4,8 +4,8 @@ import app.ashcon.architect.level.Level;
 import app.ashcon.architect.level.LevelCache;
 import app.ashcon.architect.level.LevelStore;
 import app.ashcon.architect.level.command.LevelCommands;
-import app.ashcon.architect.level.command.provider.DynamicLevelProvider;
-import app.ashcon.architect.level.command.provider.StaticLevelProvider;
+import app.ashcon.architect.level.command.provider.NamedLevelProvider;
+import app.ashcon.architect.level.command.provider.CurrentLevelProvider;
 import app.ashcon.architect.level.listener.LevelInteractListener;
 import app.ashcon.architect.model.mongo.MongoLevelStore;
 import app.ashcon.architect.model.mongo.MongoUserStore;
@@ -39,9 +39,9 @@ public abstract class ArchitectModule {
 
     abstract void provideLevelInteractListener(LevelInteractListener levelInteractListener);
 
-    abstract void provideDynamicLevelProvider(DynamicLevelProvider dynamicLevelProvider);
+    abstract void provideDynamicLevelProvider(NamedLevelProvider namedLevelProvider);
 
-    abstract void provideStaticLevelProvider(StaticLevelProvider staticLevelProvider);
+    abstract void provideStaticLevelProvider(CurrentLevelProvider currentLevelProvider);
 
     @Provides
     @Singleton
