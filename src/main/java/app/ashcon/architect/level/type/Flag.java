@@ -1,5 +1,11 @@
 package app.ashcon.architect.level.type;
 
+import app.ashcon.architect.level.Level;
+
+/**
+ * Represents the different flags for a {@link Level} that
+ * either enable or disable world features.
+ */
 public enum Flag {
     ANIMALS,    // Any entity that is an Animal will not spawn.
     MONSTERS,   // Any entity that is a Monster will not spawn.

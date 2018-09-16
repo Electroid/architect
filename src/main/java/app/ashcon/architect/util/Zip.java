@@ -9,8 +9,18 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+/**
+ * Utility to compress and decompress zip files.
+ */
 public interface Zip {
 
+    /**
+     * Compress a directory into an output stream.
+     *
+     * @param dir The directory to compress.
+     * @param out The output stream to put the files.
+     * @throws IOException
+     */
     static void compress(File dir, ZipOutputStream out) throws IOException {
         File[] files = dir.listFiles();
         if(files == null || files.length == 0) {
@@ -33,6 +43,13 @@ public interface Zip {
         }
     }
 
+    /**
+     * Decompress a zipped input stream into a directory.
+     *
+     * @param dir The directory to put the files.
+     * @param in The zipped input stream.
+     * @throws IOException
+     */
     static void decompress(File dir, ZipInputStream in) throws IOException {
         ZipEntry entry;
         String root = null;

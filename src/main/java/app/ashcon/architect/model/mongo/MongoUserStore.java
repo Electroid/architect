@@ -2,7 +2,6 @@ package app.ashcon.architect.model.mongo;
 
 import app.ashcon.architect.user.User;
 import app.ashcon.architect.user.UserStore;
-import app.ashcon.architect.util.conversion.Conversion;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Indexes;
 
@@ -13,9 +12,8 @@ import java.util.UUID;
 @Singleton
 public class MongoUserStore extends MongoModelStore<User> implements UserStore {
 
-    @Inject MongoUserStore(Conversion<User> conversion, MongoDatabase db) {
-        this.conversion = conversion;
-        this.collection = db.getCollection("users");
+    @Inject MongoUserStore(MongoDatabase db) {
+        super(User.class, db.getCollection("users"));
         this.collection.createIndex(Indexes.text("username"));
     }
 

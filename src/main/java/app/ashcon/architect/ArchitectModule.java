@@ -1,15 +1,16 @@
 package app.ashcon.architect;
 
 import app.ashcon.architect.level.Level;
-import app.ashcon.architect.level.LevelCache;
+import app.ashcon.architect.level.LevelListener;
+import app.ashcon.architect.level.LevelLoader;
 import app.ashcon.architect.level.LevelStore;
 import app.ashcon.architect.level.command.LevelCommands;
 import app.ashcon.architect.level.command.provider.NamedLevelProvider;
 import app.ashcon.architect.level.command.provider.CurrentLevelProvider;
-import app.ashcon.architect.level.listener.LevelInteractListener;
 import app.ashcon.architect.model.mongo.MongoLevelStore;
 import app.ashcon.architect.model.mongo.MongoUserStore;
 import app.ashcon.architect.user.User;
+import app.ashcon.architect.user.UserListener;
 import app.ashcon.architect.user.UserStore;
 import app.ashcon.architect.util.conversion.Conversion;
 import app.ashcon.architect.util.conversion.ConversionImpl;
@@ -21,7 +22,6 @@ import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
 
-import javax.inject.Singleton;
 import java.util.logging.Logger;
 
 @Module
@@ -33,25 +33,21 @@ public abstract class ArchitectModule {
     @Binds
     abstract LevelStore provideLevelStore(MongoLevelStore levelStore);
 
-    abstract void provideLevelCache(LevelCache levelCache);
-
     abstract void provideLevelCommands(LevelCommands levelCommands);
 
-    abstract void provideLevelInteractListener(LevelInteractListener levelInteractListener);
+    abstract void provideLevelListener(LevelListener levelListener);
 
-    abstract void provideDynamicLevelProvider(NamedLevelProvider namedLevelProvider);
+    abstract void provideUserListener(UserListener userListener);
 
-    abstract void provideStaticLevelProvider(CurrentLevelProvider currentLevelProvider);
+    abstract void provideLevelLoader(LevelLoader levelLoader);
 
-    @Provides
-    @Singleton
-    static Level provideLevelDefault() {
-        return new Level.Lobby();
-    }
+    abstract void provideNamedLevelProvider(NamedLevelProvider namedLevelProvider);
+
+    abstract void provideCurrentLevelProvider(CurrentLevelProvider currentLevelProvider);
 
     @Provides
     static ConnectionString provideMongoClientUri() {
-        return new ConnectionString(getSetting("mongo.uri", "mongodb://localhost:27017"));
+        return new ConnectionString(getSetting("mongo.uri", "mongodb://localhost:27017/?replicaSet=rs0"));
     }
 
     @Provides

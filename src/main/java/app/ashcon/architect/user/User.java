@@ -12,14 +12,13 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 
 /**
- * Represents a persistent player that has
- * a unique ID and a cached username.
+ * Represents a persistent player that has a unique ID and a cached username.
  */
 public class User implements Model {
 
-    @SerializedName("_id")      UUID id;
-    @SerializedName("username") String username;
-    @SerializedName("level_id") String levelId;
+    private @SerializedName("_id")      UUID id;
+    private @SerializedName("username") String username;
+    private @SerializedName("level_id") String levelId;
 
     public User(@Nonnull UUID id, @Nonnull String username, @Nullable String levelId) {
         this.id = id;
@@ -30,7 +29,7 @@ public class User implements Model {
     @Override
     public String getId() {
         if(id == null) {
-            id = new UUID(0, 0);
+            id = UUID.randomUUID();
         }
         return id.toString();
     }
@@ -38,7 +37,7 @@ public class User implements Model {
     @Override
     public String getName() {
         if(username == null) {
-            username = UUID.randomUUID().toString();
+            username = getId();
         }
         return username;
     }
@@ -66,7 +65,7 @@ public class User implements Model {
      *
      * @return The player reference.
      */
-    public Player getPlayer() {
+    public Player needPlayer() {
         if(isOnline()) {
             return tryPlayer();
         } else {
@@ -104,7 +103,7 @@ public class User implements Model {
     public boolean setLevel(@Nullable Level level) {
         if(level == null) {
             levelId = null;
-        } else if(isOnline() && level.hasRole(Role.VIEWER, getPlayer())) {
+        } else if(isOnline() && level.hasRole(Role.VIEWER, needPlayer())) {
             levelId = level.getId();
         } else {
             return false;

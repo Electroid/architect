@@ -2,6 +2,11 @@ package app.ashcon.architect.util.conversion;
 
 import org.bson.Document;
 
+/**
+ * Converts between {@link Document}s and {@link Object}s.
+ *
+ * @param <T> The type of {@link Object} to convert.
+ */
 public interface Conversion<T> {
 
     /**

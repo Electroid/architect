@@ -13,6 +13,7 @@ import com.mongodb.client.gridfs.GridFSUploadStream;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
+import org.bukkit.Bukkit;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -20,7 +21,6 @@ import javax.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -29,23 +29,31 @@ import java.util.zip.ZipOutputStream;
 public class MongoLevelStore extends MongoModelStore<Level> implements LevelStore {
 
     private final GridFSBucket bucket;
-    private final Level lobby;
 
-    @Inject MongoLevelStore(Conversion<Level> conversion, MongoDatabase db, Level lobby) {
-        super();
-        this.conversion = conversion;
+    @Inject MongoLevelStore(Conversion<Level> conversion, MongoDatabase db) {
+        super(Level.class, db.getCollection("levels"));
         this.bucket = GridFSBuckets.create(db, "worlds");
-        this.collection = db.getCollection("levels");
         this.collection.createIndex(Indexes.text("name"));
-        this.lobby = update(lobby);
+        this.collection.createIndex(Indexes.ascending("default"));
     }
 
     @Override
-    public Optional<Level> find(String id) {
-        if("world".equalsIgnoreCase(id)) {
-            return Optional.of(lobby);
+    public Level fallback() {
+        final List<Level> fallbacks = requestDocuments(
+            collection.find(Filters.eq("default", true))
+        ).collect(Collectors.toList());
+        if(fallbacks.size() == 1) {
+            final Level fallback = fallbacks.get(0);
+            final String defaultWorld = Bukkit.getWorlds().get(0).getName();
+            if(fallback.getName().equals(defaultWorld)) {
+                return fallback;
+            }
         }
-        return super.find(id);
+        fallbacks.forEach(level -> {
+            level.setDefault(false);
+            update(level);
+        });
+        return update(Level.createDefault());
     }
 
     @Override
@@ -65,7 +73,7 @@ public class MongoLevelStore extends MongoModelStore<Level> implements LevelStor
     @Override
     public boolean upload(String id, File source) {
         if(source.isDirectory() && source.listFiles().length > 0) {
-            GridFSUploadStream upload = bucket.openUploadStream(id);
+            final GridFSUploadStream upload = bucket.openUploadStream(id);
             try {
                 ZipOutputStream zip = new ZipOutputStream(upload);
                 Zip.compress(source, zip);
@@ -83,9 +91,9 @@ public class MongoLevelStore extends MongoModelStore<Level> implements LevelStor
     @Override
     public boolean download(String id, File destination) {
         try {
-            GridFSDownloadStream download = bucket.openDownloadStream(id);
+            final GridFSDownloadStream download = bucket.openDownloadStream(id);
             destination.mkdirs();
-            ZipInputStream zip = new ZipInputStream(download);
+            final ZipInputStream zip = new ZipInputStream(download);
             Zip.decompress(destination, zip);
             zip.close();
             download.close();

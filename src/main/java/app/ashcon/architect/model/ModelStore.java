@@ -12,15 +12,23 @@ public interface ModelStore<T extends Model> {
      * Find a model by its unique ID.
      *
      * @param id The unique model ID.
-     * @return A future, optional model.
+     * @return An optional model.
      */
     Optional<T> find(String id);
+
+    /**
+     * Find a model by its unique ID in cache.
+     *
+     * @param id The unique model ID.
+     * @return An optional model.
+     */
+    Optional<T> findCached(String id);
 
     /**
      * Search for a model by its name.
      *
      * @param name The model name.
-     * @return A future search model response.
+     * @return A list of models.
      */
     List<T> search(String name);
 
@@ -28,7 +36,7 @@ public interface ModelStore<T extends Model> {
      * Update or create a model to the store.
      *
      * @param model The model.
-     * @return A future, updated model.
+     * @return An updated model.
      */
     T update(T model);
 
@@ -36,7 +44,6 @@ public interface ModelStore<T extends Model> {
      * Delete a model from the store.
      *
      * @param id The model ID to delete.
-     * @return A future when the model is deleted.
      */
     void delete(String id);
 

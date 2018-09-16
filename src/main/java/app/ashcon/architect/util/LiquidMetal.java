@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Direct port of the JavaScript LiquidMetal.
+ * Utility to score and compare {@link String}s.
  *
  * @link https://github.com/rmm5t/liquidmetal
  * @author Steve Anton

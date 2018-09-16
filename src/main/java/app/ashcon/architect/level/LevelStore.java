@@ -9,6 +9,14 @@ import java.util.List;
 public interface LevelStore extends ModelStore<Level> {
 
     /**
+     * Get the default level when players login for the first time
+     * or their previous level can not be found.
+     *
+     * @return The default level.
+     */
+    Level fallback();
+
+    /**
      * List the levels that a viewer can visit.
      *
      * @param playerId The ID of the player, or null for console.

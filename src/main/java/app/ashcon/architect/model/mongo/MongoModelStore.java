@@ -3,6 +3,9 @@ package app.ashcon.architect.model.mongo;
 import app.ashcon.architect.model.Model;
 import app.ashcon.architect.model.ModelStore;
 import app.ashcon.architect.util.conversion.Conversion;
+import app.ashcon.architect.util.conversion.ConversionImpl;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.Filters;
@@ -10,25 +13,59 @@ import com.mongodb.client.model.FindOneAndReplaceOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.ReturnDocument;
 import com.mongodb.client.model.Sorts;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import com.mongodb.client.model.changestream.FullDocument;
 import org.bson.Document;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class MongoModelStore<M extends Model> implements ModelStore<M> {
 
-    protected Conversion<M> conversion;
-    protected MongoCollection<Document> collection;
+    protected final MongoCollection<Document> collection;
+    protected final Conversion<M> conversion;
+    protected final Cache<String, M> cache;
+
+    protected MongoModelStore(Class<M> clazz, MongoCollection<Document> collection) {
+        this.collection = collection;
+        this.conversion = new ConversionImpl<>(clazz);
+        this.cache = CacheBuilder.newBuilder()
+                                 .expireAfterWrite(15, TimeUnit.MINUTES)
+                                 .initialCapacity(16)
+                                 .softValues()
+                                 .build();
+        new Thread(() -> this.collection.watch().fullDocument(FullDocument.UPDATE_LOOKUP).forEach((Consumer<ChangeStreamDocument<Document>>) event -> {
+            final Document document = event.getFullDocument();
+            if(document != null) {
+                final Object id = document.get("_id");
+                if(id != null && cache.getIfPresent(id) != null) {
+                    cache.put(id.toString(), conversion.toObject(document));
+                }
+            }
+        })).start();
+    }
 
     @Override
     public Optional<M> find(String id) {
-        if(id == null) {
-            return Optional.empty();
-        }
+        if(id == null) return Optional.empty();
         return requestDocument(collection.find(Filters.eq("_id", id)));
+    }
+
+    @Override
+    public Optional<M> findCached(String id) {
+        if(id == null) return Optional.empty();
+        M cached = cache.getIfPresent(id);
+        if(cached == null) {
+            Optional<M> result = find(id);
+            result.ifPresent(model -> cache.put(id, model));
+            return result;
+        }
+        return Optional.of(cached);
     }
 
     @Override

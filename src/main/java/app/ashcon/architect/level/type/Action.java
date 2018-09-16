@@ -1,9 +1,11 @@
 package app.ashcon.architect.level.type;
 
+import app.ashcon.architect.level.Level;
+
+/**
+ * Represents a membership action for a {@link Level}.
+ */
 public enum Action {
-    GET,     // Get the role of the player.
-    ADD,     // Add a player to the level.
-    REMOVE,  // Remove a player from the level.
     DEMOTE,  // Demote a player to a lower role.
     PROMOTE; // Promote a player to a higher role.
 }

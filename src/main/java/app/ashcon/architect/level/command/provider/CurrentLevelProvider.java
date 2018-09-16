@@ -13,25 +13,31 @@ import com.google.common.cache.CacheBuilder;
 import org.bukkit.Physical;
 import org.bukkit.command.CommandSender;
 
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Provides the current {@link Level} for any {@link CommandSender}
+ * that is also a {@link Physical} object.
+ *
+ * Also allows non-{@link Physical}s to manually set their context,
+ * so they can interact with a current {@link Level}.
+ */
 @Singleton
 public class CurrentLevelProvider implements BukkitProvider<Level> {
 
     private final LevelStore levelStore;
-    private final Cache<String, String> levelIds;
+    private final Cache<String, String> consoleContext;
 
     @Inject CurrentLevelProvider(LevelStore levelStore) {
         this.levelStore = levelStore;
-        this.levelIds = CacheBuilder.newBuilder()
-                                    .expireAfterWrite(1, TimeUnit.HOURS)
-                                    .initialCapacity(16)
-                                    .build();
+        this.consoleContext = CacheBuilder.newBuilder()
+                                          .expireAfterWrite(1, TimeUnit.HOURS)
+                                          .initialCapacity(16)
+                                          .build();
     }
 
     @Override
@@ -39,28 +45,33 @@ public class CurrentLevelProvider implements BukkitProvider<Level> {
         return true;
     }
 
-    @Nullable
     @Override
     public Level get(CommandSender sender, CommandArgs args, List<? extends Annotation> mods) throws ArgumentException, ProvisionException {
         final String levelId;
         if(sender instanceof Physical) {
             levelId = ((Physical) sender).getWorld().getName();
         } else {
-            levelId = levelIds.getIfPresent(sender.getName());
+            levelId = consoleContext.getIfPresent(sender.getName());
         }
         final Level level = levelStore.find(levelId)
-                                      .orElseThrow(() -> new ArgumentException("Could not find your current level, try teleporting to a level"));
+                                      .orElseThrow(() -> new ArgumentException("Could not find your current level, try teleporting to one"));
         final Role role = getRole(mods);
         if(level.hasRole(role, sender)) {
             return level;
         } else {
-            throw new ArgumentException("You must have at least the " + role.name().toLowerCase() + " role to use this command");
+            throw new ArgumentException("You need the " + role + " role to use this command");
         }
     }
 
-    public void teleport(CommandSender sender, Level level) {
+    /**
+     * Sets the current {@link Level} for a non-{@link Physical} object.
+     *
+     * @param sender Any command sender.
+     * @param level The level to set their context to.
+     */
+    public void setContext(CommandSender sender, Level level) {
         if(!(sender instanceof Physical)) {
-            levelIds.put(sender.getName(), level.getId());
+            consoleContext.put(sender.getName(), level.getId());
         }
     }
 

@@ -1,10 +1,9 @@
-package app.ashcon.architect.level.listener;
+package app.ashcon.architect.level;
 
-import app.ashcon.architect.level.Level;
-import app.ashcon.architect.level.LevelCache;
 import app.ashcon.architect.level.type.Flag;
 import app.ashcon.architect.level.type.Role;
 import org.bukkit.Physical;
+import org.bukkit.World;
 import org.bukkit.entity.Animals;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Monster;
@@ -56,22 +55,34 @@ import org.bukkit.event.weather.WeatherChangeEvent;
 import org.bukkit.event.world.StructureGrowEvent;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-@Singleton
-public class LevelInteractListener implements Listener {
+/**
+ * Listens to {@link World} events in a {@link Level}
+ * and checks whether it should happen or not.
+ */
+public class LevelListener implements Listener {
 
-    final LevelCache levelCache;
+    private final LevelStore levelStore;
 
-    @Inject LevelInteractListener(LevelCache levelCache) {
-        this.levelCache = levelCache;
+    @Inject LevelListener(LevelStore levelStore) {
+        this.levelStore = levelStore;
     }
 
+    /**
+     * Get whether a {@link Physical} is allowed to do something.
+     *
+     * If the {@link Physical} is {@link Cancellable},
+     * then it will be cancelled.
+     *
+     * @param physical The physical object.
+     * @param predicate An level predicate.
+     * @return Whether the event is allowed.
+     */
     public boolean ok(Physical physical, Predicate<Level> predicate) {
-        boolean ok = levelCache.find(physical.getWorld().getName())
+        boolean ok = levelStore.findCached(physical.getWorld().getName())
                                .map(level -> !level.isLocked() && predicate.test(level))
                                .orElse(true);
         if(physical instanceof Cancellable) {
@@ -80,115 +91,139 @@ public class LevelInteractListener implements Listener {
         return ok;
     }
 
+    /**
+     * Get whether a {@link Physical} is allowed to do something.
+     *
+     * @see #ok(Physical, Predicate)
+     * @param physical The physical object.
+     * @param flags The required flags for this event.
+     * @return Whether the event is allowed.
+     */
     public boolean ok(Physical physical, Flag... flags) {
         return ok(physical, level -> Stream.of(flags).noneMatch(level::hasFlag));
     }
 
+    /**
+     * Get whether a {@link Player} is allowed to do something.
+     *
+     * @see #ok(Physical, Predicate)
+     * @param action The player action, typically an event.
+     * @param predicate The level and player predicate.
+     * @return Whether the event is allowed.
+     */
     public boolean ok(PlayerAction action, BiPredicate<Level, Player> predicate) {
         return ok((Physical) action, level -> predicate.test(level, action.getActor()));
     }
 
+    /**
+     * Get whether a {@link Player} is allowed to do something.
+     *
+     * @see #ok(PlayerAction, BiPredicate)
+     * @param action The player action, typically an event.
+     * @param role The role required for this event.
+     * @return Whether the event is allowed.
+     */
     public boolean ok(PlayerAction action, Role role) {
         return ok(action, (level, player) -> level.hasRole(role, action.getActor()));
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockPhysics(BlockPhysicsEvent event) {
+    void blockPhysics(final BlockPhysicsEvent event) {
         ok(event, Flag.PHYSICS);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockForm(BlockFromToEvent event) {
+    void blockForm(final BlockFromToEvent event) {
         ok(event, Flag.PHYSICS);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockChange(EntityChangeBlockEvent event) {
+    void blockChange(final EntityChangeBlockEvent event) {
         ok(event, Flag.PHYSICS);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void iceForm(BlockFormEvent event) {
+    void iceForm(final BlockFormEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockFade(BlockFadeEvent event) {
+    void blockFade(final BlockFadeEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockGrow(BlockGrowEvent event) {
+    void blockGrow(final BlockGrowEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockSpread(BlockSpreadEvent event) {
+    void blockSpread(final BlockSpreadEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockMove(BlockFromToEvent event) {
+    void blockMove(final BlockFromToEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockLeaf(LeavesDecayEvent event) {
+    void blockLeaf(final LeavesDecayEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void structureGrow(StructureGrowEvent event) {
+    void structureGrow(final StructureGrowEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityInteract(EntityInteractEvent event) {
+    void entityInteract(final EntityInteractEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityFormBlock(EntityBlockFormEvent event) {
+    void entityFormBlock(final EntityBlockFormEvent event) {
         ok(event, Flag.WORLD);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockIgnite(BlockIgniteEvent event) {
+    void blockIgnite(final BlockIgniteEvent event) {
         ok(event, Flag.FIRE);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockBurn(BlockBurnEvent event) {
+    void blockBurn(final BlockBurnEvent event) {
         ok(event, Flag.FIRE);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void weatherChange(WeatherChangeEvent event) {
+    void weatherChange(final WeatherChangeEvent event) {
         if(event.toWeatherState()) {
             ok(event, Flag.WEATHER);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityExplode(EntityExplodeEvent event) {
+    void entityExplode(final EntityExplodeEvent event) {
         ok(event, Flag.EXPLOSIONS);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockExplode(BlockExplodeEvent event) {
+    void blockExplode(final BlockExplodeEvent event) {
         ok(event, Flag.EXPLOSIONS);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void hangingBreak(HangingBreakEvent event) {
+    void hangingBreak(final HangingBreakEvent event) {
         if(event.getCause().equals(HangingBreakEvent.RemoveCause.EXPLOSION)) {
             ok(event, Flag.EXPLOSIONS);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    void creatureSpawn(CreatureSpawnEvent event) {
-        LivingEntity entity = event.getEntity();
+    void creatureSpawn(final CreatureSpawnEvent event) {
+        final LivingEntity entity = event.getEntity();
         if(entity instanceof Monster) {
             ok(event, Flag.MONSTERS);
         } else if(entity instanceof Animals) {
@@ -197,124 +232,124 @@ public class LevelInteractListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    void bucketEmpty(PlayerBucketEmptyEvent event) {
+    void bucketEmpty(final PlayerBucketEmptyEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void bucketFill(PlayerBucketFillEvent event) {
+    void bucketFill(final PlayerBucketFillEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void itemDrop(PlayerDropItemEvent event) {
+    void itemDrop(final PlayerDropItemEvent event) {
         if(!ok(event)) {
             event.getItemDrop().remove();
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    void itemPickup(PlayerPickupItemEvent event) {
+    void itemPickup(final PlayerPickupItemEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void arrowPickup(PlayerPickupArrowEvent event) {
+    void arrowPickup(final PlayerPickupArrowEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void vehicleEnter(VehicleEnterEvent event) {
+    void vehicleEnter(final VehicleEnterEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void vehicleCreate(VehicleCreateEvent event) {
+    void vehicleCreate(final VehicleCreateEvent event) {
         if(!ok(event)) {
             event.getVehicle().remove();
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    void vehicleDamage(VehicleDamageEvent event) {
+    void vehicleDamage(final VehicleDamageEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void vehicleDestroy(VehicleDestroyEvent event) {
+    void vehicleDestroy(final VehicleDestroyEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void shootProjectile(ProjectileLaunchEvent event) {
+    void shootProjectile(final ProjectileLaunchEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void inventoryClick(InventoryClickEvent event) {
-        InventoryType type = event.getInventory().getType();
+    void inventoryClick(final InventoryClickEvent event) {
+        final InventoryType type = event.getInventory().getType();
         if(type.equals(InventoryType.CREATIVE) || type.equals(InventoryType.PLAYER)) {
             ok(event);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    void itemSpawn(ItemSpawnEvent event) {
+    void itemSpawn(final ItemSpawnEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityTarget(EntityTargetEvent event) {
+    void entityTarget(final EntityTargetEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityTame(EntityTameEvent event) {
+    void entityTame(final EntityTameEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void entityDamage(EntityDamageByEntityEvent event) {
+    void entityDamage(final EntityDamageByEntityEvent event) {
         ok(event);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void playerInteract(PlayerInteractEvent event) {
+    void playerInteract(final PlayerInteractEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void playerInteract(PlayerAttackEntityEvent event) {
+    void playerInteract(final PlayerAttackEntityEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void playerInteract(PlayerInteractEntityEvent event) {
+    void playerInteract(final PlayerInteractEntityEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void playerInteract(PlayerDropItemEvent event) {
+    void playerInteract(final PlayerDropItemEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void playerInteract(PlayerArmorStandManipulateEvent event) {
+    void playerInteract(final PlayerArmorStandManipulateEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockBreak(BlockBreakEvent event) {
+    void blockBreak(final BlockBreakEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockPlace(BlockPlaceEvent event) {
+    void blockPlace(final BlockPlaceEvent event) {
         ok(event, Role.EDITOR);
     }
 
     @EventHandler(ignoreCancelled = true)
-    void blockPlace(BlockMultiPlaceEvent event) {
+    void blockPlace(final BlockMultiPlaceEvent event) {
         ok(event, Role.EDITOR);
     }
 

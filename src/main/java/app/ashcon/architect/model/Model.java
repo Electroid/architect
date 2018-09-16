@@ -6,7 +6,7 @@ package app.ashcon.architect.model;
 public interface Model {
 
     /**
-     * Get the globally unique ID of the model.
+     * Get the unique ID of the model.
      *
      * @return A unique ID.
      */

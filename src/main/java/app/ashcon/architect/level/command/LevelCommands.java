@@ -1,6 +1,7 @@
 package app.ashcon.architect.level.command;
 
 import app.ashcon.architect.level.Level;
+import app.ashcon.architect.level.LevelLoader;
 import app.ashcon.architect.level.LevelStore;
 import app.ashcon.architect.level.command.annotation.Current;
 import app.ashcon.architect.level.command.annotation.Require;
@@ -19,77 +20,37 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.io.File;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-@Singleton
+/**
+ * Represents user-commands to interact with {@link Level}s.
+ */
+// TODO(ashcon): Add list of levels
+// TODO(ashcon): Fix intake public-only methods
 @Group({@At("level"), @At("lvl")})
-// TODO: List and search
 public class LevelCommands {
 
     private final LevelStore levelStore;
+    private final LevelLoader levelLoader;
     private final CurrentLevelProvider levelProvider;
 
-    @Inject LevelCommands(LevelStore levelStore, CurrentLevelProvider levelProvider) {
+    @Inject LevelCommands(LevelStore levelStore, LevelLoader levelLoader, CurrentLevelProvider levelProvider) {
         this.levelStore = levelStore;
+        this.levelLoader = levelLoader;
         this.levelProvider = levelProvider;
-    }
-
-    private <T> void update(CommandSender sender, Level level, String name, Function<Level, T> getter, BiConsumer<Level, T> setter, T value, Role role) {
-        final T oldValue = getter.apply(level);
-        final boolean isSame = Objects.equals(oldValue, value);
-        final boolean isEdit = value != null;
-        final boolean canEdit = level.hasRole(role, sender);
-        final boolean canView = level.hasRole(Role.VIEWER, sender);
-        update(
-            sender,
-            () -> canView || (isEdit && (canEdit || !isSame)),
-            () -> {
-                if(value != null) {
-                    setter.accept(level, value);
-                    levelStore.update(level);
-                }
-            },
-            () -> {
-                if(value == null) {
-                    return "Level " + name + " is " + oldValue;
-                } else {
-                    return "Level " + name + " changed from " + oldValue + " to " + value;
-                }
-            },
-            () -> {
-                if(!canView) {
-                    return "Level " + name + " requires the " + Role.VIEWER + " role";
-                } else if(!canEdit) {
-                    return "Level " + name + " requires the " + role + " role";
-                } else {
-                    return "Level " + name + " already is " + oldValue;
-                }
-            }
-        );
-    }
-
-    private void update(CommandSender sender, Supplier<Boolean> filter, Runnable update, Supplier<String> yes, Supplier<String> no) {
-        final String response;
-        if(filter.get()) {
-            update.run();
-            response = ChatColor.YELLOW + yes.get();
-        } else {
-            response = ChatColor.RED + no.get();
-        }
-        sender.sendMessage(response);
     }
 
     @Command(
         aliases = {"lock"},
-        desc = "Prevent further changes in the level",
+        desc = "Get or set the lock state of the level",
         usage = "<true|false>"
     )
     public void lock(CommandSender sender, @Current Level level, @Nullable Boolean on) {
@@ -98,10 +59,11 @@ public class LevelCommands {
 
     @Command(
         aliases = {"spawn"},
-        desc = "Get or set the spawn of the level"
+        desc = "Get or set the spawn of the level",
+        usage = "[x,y,z]"
     )
-    public void spawn(CommandSender sender, @Current Level level) {
-        update(sender, level, "spawn", Level::getSpawn, Level::setSpawn, null, Role.EDITOR); // TODO
+    public void spawn(CommandSender sender, @Current Level level, @Nullable Vector spawn) {
+        update(sender, level, "spawn", Level::getSpawn, Level::setSpawn, spawn, Role.EDITOR);
     }
 
     @Command(
@@ -113,8 +75,9 @@ public class LevelCommands {
     }
 
     @Command(
-        aliases = {"visibility"},
-        desc = "Get or set the visibility of the level"
+        aliases = {"status"},
+        desc = "Get or set the visibility of the level",
+        usage = "[public|unlisted|private]"
     )
     public void visibility(CommandSender sender, @Current Level level, @Nullable Visibility visibility) {
         update(sender, level, "visibility", Level::getVisibility, Level::setVisibility, visibility, Role.EDITOR);
@@ -130,31 +93,31 @@ public class LevelCommands {
 
     @Command(
         aliases = {"member"},
-        desc = "Get or modify a membership for the level"
+        desc = "Get or modify a membership for the level",
+        usage = "<player> [promote|demote]"
     )
-    public void member(CommandSender sender, @Current Level level, Player player, Action action, @Nullable Role role) {
+    public void member(CommandSender sender, @Current Level level, Player player, @Nullable Action action) {
         final String playerId = player.getUniqueId().toString();
-        update(sender, level, "membership for " + player.getDisplayName(sender), lvl -> lvl.getRoleExplicitly(playerId), (lvl, rol) -> {
-            if(rol == null) return;
-            if(lvl.hasRole(rol.up(), sender)) {
-                switch(action) {
-                    case ADD:
-                        lvl.addPlayer(playerId, rol);
-                        break;
-                    case REMOVE:
-                        lvl.removePlayer(playerId);
-                        break;
-                    case PROMOTE:
-                        lvl.addPlayer(playerId, rol.up());
-                        break;
-                    case DEMOTE:
-                        lvl.addPlayer(playerId, rol.down());
-                        break;
-                }
-            } else {
-                throw new IllegalArgumentException("You do not have permission to modify the " + rol + " group");
+        final Role current = level.getRole(player);
+        final Role next;
+        if(action == Action.PROMOTE) {
+            next = current.getParent();
+        } else if(action == Action.DEMOTE) {
+            next = current.getChild();
+        } else {
+            next = null;
+        }
+        final Role require = next == null ? Role.VIEWER : next.getParent();
+        update(sender, level, "membership for " + player.getDisplayName(sender), lvl -> lvl.getRole(player), (lvl, rol) -> {
+            switch(action) {
+                case PROMOTE:
+                    lvl.addPlayer(playerId, rol.getParent());
+                    break;
+                case DEMOTE:
+                    lvl.addPlayer(playerId, rol.getChild());
+                    break;
             }
-        } , role, Role.EDITOR);
+        }, next, require);
     }
 
     @Command(
@@ -162,10 +125,12 @@ public class LevelCommands {
         desc = "Save the progress of the level"
     )
     public void save(CommandSender sender, @Current @Require(Role.EDITOR) Level level) {
-        final World world = level.needWorld();
-        world.save();
-        levelStore.upload(level.getId(), world.getWorldFolder());
-        sender.sendMessage(ChatColor.YELLOW + "Saved the level with " + world.getLoadedChunks().length + " chunks");
+        if(level.isLocked()) {
+            sender.sendMessage(ChatColor.RED + "You cannot save a locked level");
+        } else {
+            levelLoader.save(level);
+            sender.sendMessage(ChatColor.GREEN + "Saved!");
+        }
     }
 
     @Command(
@@ -176,50 +141,26 @@ public class LevelCommands {
         final World world = level.needWorld();
         final int others = world.getPlayerCount() - 1;
         if(others > 0 && !confirm) {
-            throw new IllegalArgumentException("Confirm you want to unload the level and kick " + others + " other player" + (others > 1 ? "s" : "") + " with the '-c' flag");
+            throw new IllegalArgumentException("Confirm you want to kick " + others + " other player" + (others > 1 ? "s" : "") + " with the '-c' flag");
         }
-        final Location destination = Bukkit.getWorlds().get(0).getSpawnLocation();
-        world.getPlayers().forEach(player -> {
-            player.teleport(destination);
-            if(!player.equals(sender)) {
-                player.sendMessage(ChatColor.RED + "The level you were in was unloaded from the server");
-            }
-        });
-        final int unloaded = world.unloadAllChunks();
-        Bukkit.unloadWorld(world, false);
-        sender.sendMessage(ChatColor.YELLOW + "Unloaded the level with " + unloaded + " chunks");
+        levelLoader.unload(level);
     }
 
     @Command(
-        aliases = {"load"},
-        desc = "Load the level to the server"
-    )
-    public void load(CommandSender sender, @Require(Role.VIEWER) Level level) {
-        if(level.isLoaded()) {
-            sender.sendMessage(ChatColor.RED + "The level you requested is already loaded");
-        } else {
-            final File folder = new File(Bukkit.getWorldContainer(), level.getId());
-            levelStore.download(level.getId(), folder);
-            level.loadWorld();
-            sender.sendMessage(ChatColor.YELLOW + "Successfully downloaded and loaded the level");
-        }
-    }
-
-    @Command(
-        aliases = {"delete"},
+        aliases = {"rm"},
         desc = "Delete the level forever"
     )
     public void delete(CommandSender sender, @Current @Require(Role.OWNER) Level level, @Switch('c') boolean confirm) {
         if(!confirm) {
-            throw new IllegalArgumentException("Confirm you want to permanently delete the level with the '-c' flag");
+            throw new IllegalArgumentException("Confirm you want to delete the level with the '-c' flag");
         }
         unload(sender, level, true);
         levelStore.delete(level.getId());
-        sender.sendMessage(ChatColor.YELLOW + "Successfully deleted the level '" + level.getName() + "'");
+        sender.sendMessage(ChatColor.GREEN + "Deleted!");
     }
 
     @Command(
-        aliases = {"create"},
+        aliases = {"new"},
         desc = "Create a new level with an owner",
         usage = "<name> [owner]"
     )
@@ -229,33 +170,75 @@ public class LevelCommands {
             if(sender instanceof Player) {
                 owner = ((Player) sender).getUniqueId().toString();
             } else {
-                throw new IllegalArgumentException("You must provide an owner of the level");
+                throw new IllegalArgumentException("You must provide an owner for the level");
             }
         } else {
             owner = player.getUniqueId().toString();
         }
         final Level level = levelStore.create(name, owner);
-        level.loadWorld();
         teleport(sender, level);
     }
 
     @Command(
-        aliases = {"teleport", "tp"},
-        desc = "Teleport to a level"
+        aliases = {"tp"},
+        desc = "Teleport to another level"
     )
     public void teleport(CommandSender sender, @Require(Role.VIEWER) Level level) {
+        levelLoader.load(level);
         if(sender instanceof Player) {
             final Player player = (Player) sender;
-            if(player.getWorld().equals(level.tryWorld())) {
-                throw new IllegalArgumentException("You are already in " + level.getName());
-            } else if(!level.isLoaded()) {
-                load(sender, level);
+            if(!level.needWorld().equals(player.getWorld())) {
+                player.teleport(level.getSpawn().toLocation(level.needWorld()));
             }
-            player.teleport(level.getSpawn().toLocation(level.needWorld()));
         } else {
-            levelProvider.teleport(sender, level);
+            levelProvider.setContext(sender, level);
         }
-        sender.sendMessage(ChatColor.YELLOW + "Teleporting you to " + level.getName());
+        sender.sendMessage(ChatColor.YELLOW + "Teleported you to " + level.getName());
+    }
+
+    private <T> void update(CommandSender sender, Level level, String name, Function<Level, T> getter, BiConsumer<Level, T> setter, T value, Role role) {
+        final T oldValue = getter.apply(level);
+        final boolean isSame = Objects.equals(oldValue, value);
+        final boolean isEdit = value != null;
+        final boolean canEdit = level.hasRole(role, sender);
+        final boolean canView = level.hasRole(Role.VIEWER, sender);
+        update(
+            sender,
+            () -> (isEdit && canEdit && !isSame) || (!isEdit && canView),
+            () -> {
+                if(value != null && canEdit) {
+                    setter.accept(level, value);
+                    levelStore.update(level);
+                }
+            },
+            () -> {
+                if(value == null) {
+                    return "The " + name + " is currently set to " + oldValue;
+                } else {
+                    return "You changed the " + name + " from " + oldValue + " to " + value;
+                }
+            },
+            () -> {
+                if(!canView) {
+                    return "You need the " + Role.VIEWER + " role to edit the " + name;
+                } else if(!canEdit) {
+                    return "You need the " + role + " role to edit the " + name;
+                } else {
+                    return "The " + name + " already is set to " + oldValue;
+                }
+            }
+        );
+    }
+
+    private void update(CommandSender sender, Supplier<Boolean> filter, Runnable update, Supplier<String> yes, Supplier<String> no) {
+        final String response;
+        if(filter.get()) {
+            update.run();
+            response = ChatColor.YELLOW + yes.get();
+        } else {
+            response = ChatColor.RED + no.get();
+        }
+        sender.sendMessage(response);
     }
 
 }
