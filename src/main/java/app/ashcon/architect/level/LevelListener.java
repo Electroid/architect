@@ -2,6 +2,7 @@ package app.ashcon.architect.level;
 
 import app.ashcon.architect.level.type.Flag;
 import app.ashcon.architect.level.type.Role;
+import dagger.Reusable;
 import org.bukkit.Physical;
 import org.bukkit.World;
 import org.bukkit.entity.Animals;
@@ -43,10 +44,16 @@ import org.bukkit.event.player.PlayerAttackEntityEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerEditBookEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemBreakEvent;
 import org.bukkit.event.player.PlayerPickupArrowEvent;
+import org.bukkit.event.player.PlayerPickupExperienceEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
+import org.bukkit.event.player.PlayerShearEntityEvent;
+import org.bukkit.event.player.PlayerSpawnEntityEvent;
 import org.bukkit.event.vehicle.VehicleCreateEvent;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
@@ -63,6 +70,7 @@ import java.util.stream.Stream;
  * Listens to {@link World} events in a {@link Level}
  * and checks whether it should happen or not.
  */
+@Reusable
 public class LevelListener implements Listener {
 
     private final LevelStore levelStore;
@@ -100,7 +108,7 @@ public class LevelListener implements Listener {
      * @return Whether the event is allowed.
      */
     public boolean ok(Physical physical, Flag... flags) {
-        return ok(physical, level -> Stream.of(flags).noneMatch(level::hasFlag));
+        return ok(physical, level -> flags.length == 0 || Stream.of(flags).anyMatch(level::hasFlag));
     }
 
     /**
@@ -232,33 +240,6 @@ public class LevelListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    void bucketEmpty(final PlayerBucketEmptyEvent event) {
-        ok(event);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    void bucketFill(final PlayerBucketFillEvent event) {
-        ok(event);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    void itemDrop(final PlayerDropItemEvent event) {
-        if(!ok(event)) {
-            event.getItemDrop().remove();
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    void itemPickup(final PlayerPickupItemEvent event) {
-        ok(event);
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    void arrowPickup(final PlayerPickupArrowEvent event) {
-        ok(event);
-    }
-
-    @EventHandler(ignoreCancelled = true)
     void vehicleEnter(final VehicleEnterEvent event) {
         ok(event);
     }
@@ -350,6 +331,63 @@ public class LevelListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     void blockPlace(final BlockMultiPlaceEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void bucketEmpty(final PlayerBucketEmptyEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void bucketFill(final PlayerBucketFillEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void itemDrop(final PlayerDropItemEvent event) {
+        if(!ok(event, Role.EDITOR)) {
+            event.getItemDrop().remove();
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void itemPickup(final PlayerPickupItemEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void editBook(final PlayerEditBookEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void itemBreak(final PlayerItemBreakEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void pickupExperience(final PlayerPickupExperienceEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void spawnEntity(final PlayerSpawnEntityEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void shearEntity(final PlayerShearEntityEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void fish(final PlayerFishEvent event) {
+        ok(event, Role.EDITOR);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void arrowPickup(final PlayerPickupArrowEvent event) {
         ok(event, Role.EDITOR);
     }
 

@@ -1,7 +1,8 @@
 package app.ashcon.architect.level;
 
-import net.md_5.bungee.api.ChatColor;
+import dagger.Reusable;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -17,6 +18,7 @@ import java.util.Random;
 /**
  * Synchronizes {@link Level} and {@link World} states.
  */
+@Reusable
 public class LevelLoader {
 
     private final LevelStore levelStore;
@@ -79,14 +81,14 @@ public class LevelLoader {
      * @param level The level to unload.
      */
     public void unload(Level level) {
-        if(!level.isLoaded()) return;
+        if(!level.isLoaded() || level.isDefault()) return;
         final World world = level.needWorld();
-        final Location fallback = Bukkit.getWorlds().get(0).getSpawnLocation();
+        final Level fallback = levelStore.fallback();
         world.getPlayers().forEach(player -> {
-            player.teleport(fallback);
-            player.sendMessage(ChatColor.RED + "Level " + level.getName() + " was deleted");
+            player.teleport(fallback.getSpawnLocation());
+            player.sendMessage(ChatColor.RED + "Level " + level.getName() + " was deleted, teleported to " + fallback.getName());
         });
-        world.unloadAllChunks();
+        save(level);
         Bukkit.unloadWorld(world, false);
     }
 

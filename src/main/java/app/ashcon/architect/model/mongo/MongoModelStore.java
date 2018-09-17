@@ -82,6 +82,8 @@ public class MongoModelStore<M extends Model> implements ModelStore<M> {
 
     @Override
     public void delete(String id) {
+        if(id == null) return;
+        cache.invalidate(id);
         collection.deleteOne(Filters.eq("_id", id));
     }
 
@@ -122,7 +124,6 @@ public class MongoModelStore<M extends Model> implements ModelStore<M> {
         try {
             return Stream.of(conversion.toObject(document));
         } catch(Throwable err) {
-            System.out.println("CAUGHT");
             err.printStackTrace();
             return Stream.empty();
         }

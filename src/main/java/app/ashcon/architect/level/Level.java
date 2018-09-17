@@ -2,10 +2,11 @@ package app.ashcon.architect.level;
 
 import app.ashcon.architect.level.type.Flag;
 import app.ashcon.architect.level.type.Role;
-import app.ashcon.architect.level.type.Visibility;
+import app.ashcon.architect.level.type.Status;
 import app.ashcon.architect.model.Model;
 import com.google.gson.annotations.SerializedName;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -16,25 +17,24 @@ import javax.annotation.Nullable;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Represents a player-defined game level.
  */
 public class Level implements Model {
 
-    private @SerializedName("_id")        final String id;
-    private @SerializedName("name")       String name;
-    private @SerializedName("visibility") Visibility visibility;
-    private @SerializedName("roles")      Map<String, Role> roles;
-    private @SerializedName("spawn")      Vector spawn;
-    private @SerializedName("flags")      EnumSet<Flag> flags;
-    private @SerializedName("locked")     Boolean locked;
-    private @SerializedName("default")    Boolean def;
+    private @SerializedName("_id")     final String id;
+    private @SerializedName("name")    String name;
+    private @SerializedName("status")  Status status;
+    private @SerializedName("roles")   Map<String, Role> roles;
+    private @SerializedName("spawn")   Vector spawn;
+    private @SerializedName("flags")   EnumSet<Flag> flags;
+    private @SerializedName("locked")  Boolean locked;
+    private @SerializedName("default") Boolean def;
 
     public Level(String id,
                  String name,
-                 Visibility visibility,
+                 Status status,
                  Map<String, Role> roles,
                  Vector spawn,
                  EnumSet<Flag> flags,
@@ -42,7 +42,7 @@ public class Level implements Model {
                  Boolean def) {
         this.id = id;
         setName(name);
-        setVisibility(visibility);
+        setStatus(status);
         setRoles(roles);
         setSpawn(spawn);
         setFlags(flags);
@@ -52,7 +52,7 @@ public class Level implements Model {
 
     public Level(String name, String playerId) {
         this(Long.toString(System.nanoTime()), name, null, null, null, null, null, null);
-        addPlayer(playerId, Role.OWNER);
+        getRoles().put(playerId, Role.OWNER);
     }
 
     @Override
@@ -175,26 +175,26 @@ public class Level implements Model {
     }
 
     /**
-     * Get the visibility of the level.
+     * Get the status of the level.
      *
-     * @see Visibility
-     * @return The current visibility of the level.
+     * @see Status
+     * @return The current status of the level.
      */
-    public Visibility getVisibility() {
-        if(visibility == null) {
-            visibility = Visibility.PRIVATE;
+    public Status getStatus() {
+        if(status == null) {
+            status = Status.PRIVATE;
         }
-        return visibility;
+        return status;
     }
 
     /**
-     * Set the visibility of the level.
+     * Set the status of the level.
      *
-     * @param visibility The new visibility of the level.
+     * @param status The new status of the level.
      */
-    public void setVisibility(@Nullable Visibility visibility) {
-        this.visibility = visibility;
-        commit("visibility");
+    public void setStatus(@Nullable Status status) {
+        this.status = status;
+        commit("status");
     }
 
     /**
@@ -220,10 +220,10 @@ public class Level implements Model {
     }
 
     /**
-     * Get the role of a player in the level.
+     * Get the explicit role of a player in the level.
      *
      * @param playerId The UUID of the player to query their role.
-     * @return The role of a player.
+     * @return The explicit role of the player.
      */
     public Role getRoleExplicitly(@Nullable String playerId) {
         return getRoles().getOrDefault(playerId, Role.NONE);
@@ -233,9 +233,9 @@ public class Level implements Model {
      * Get the implicit role of a command sender in the level.
      *
      * @param sender The command sender to query their role.
-     * @return The role of the command sender.
+     * @return The implicit role of the command sender.
      */
-    public Role getRole(CommandSender sender) {
+    public Role getRoleImplicitly(CommandSender sender) {
         if(isDefault()) {
             return Role.VIEWER;
         } else if(sender instanceof ConsoleCommandSender) {
@@ -244,16 +244,21 @@ public class Level implements Model {
             final Player player = (Player) sender;
             if(player.isOp() || player.hasPermission("architect.owner")) {
                 return Role.OWNER;
-            } else {
-                Role role = getRoleExplicitly(player.getUniqueId().toString());
-                if(role == null && visibility != Visibility.PRIVATE) {
-                    role = Role.VIEWER;
-                }
-                return role;
             }
-        } else {
-            return Role.NONE;
         }
+        return getStatus() != Status.PRIVATE ? Role.VIEWER : Role.NONE;
+    }
+
+    /**
+     * Get the higher of the implicit and explicit role for a command sender in the level.
+     *
+     * @param sender The command sender to query their role.
+     * @return The role of the command sender.
+     */
+    public Role getRole(CommandSender sender) {
+        final Role implicit = getRoleImplicitly(sender);
+        final Role explicit = sender instanceof Player ? getRoleExplicitly(((Player) sender).getUniqueId().toString()) : Role.NONE;
+        return implicit.ordinal() < explicit.ordinal() ? implicit : explicit;
     }
 
     /**
@@ -269,6 +274,34 @@ public class Level implements Model {
     }
 
     /**
+     * Set the explicit role for a player.
+     *
+     * @param player The player to add or remove.
+     * @param role The role to give the player.
+     * @throws IllegalArgumentException If the operation can't occur.
+     */
+    public void setRole(Player player, @Nullable Role role) {
+        final String playerId = player.getUniqueId().toString();
+        role = role == null ? Role.NONE : role;
+        final Role explicit = getRoleExplicitly(playerId);
+        if(role == explicit) return;
+        final Role implicit = getRoleImplicitly(player);
+        if(role.ordinal() > implicit.ordinal()) {
+            throw new IllegalArgumentException("Cannot set membership to " + role + ", since they inherently have the " + implicit + " role");
+        } else if(explicit == Role.OWNER && getRoles().keySet().stream().anyMatch(id -> !id.equals(playerId) && getRoleExplicitly(id) == Role.OWNER)) {
+            throw new IllegalArgumentException("Cannot set membership to " + role + ", since there must be at least one " + Role.OWNER);
+        } else if(role == Role.NONE) {
+            getRoles().remove(playerId);
+        } else {
+            getRoles().put(playerId, role);
+        }
+        if(getRoles().isEmpty()) {
+            setRoles(null);
+        }
+        commit("roles");
+    }
+
+    /**
      * Get the flags that are enabled in the level.
      *
      * Any flags that are excluded from the set
@@ -278,7 +311,7 @@ public class Level implements Model {
      */
     public EnumSet<Flag> getFlags() {
         if(flags == null) {
-            flags = EnumSet.noneOf(Flag.class);
+            flags = EnumSet.allOf(Flag.class);
         }
         return flags;
     }
@@ -333,6 +366,15 @@ public class Level implements Model {
     }
 
     /**
+     * Get the initial spawn location in the world.
+     *
+     * @return The inital spawn in the world.
+     */
+    public Location getSpawnLocation() {
+        return getSpawn().toLocation(needWorld());
+    }
+
+    /**
      * Set the initial spawn vector of the level.
      *
      * @param spawn The new initial spawn.
@@ -340,59 +382,6 @@ public class Level implements Model {
     public void setSpawn(Vector spawn) {
         this.spawn = spawn;
         commit("spawn");
-    }
-
-    /**
-     * Get the players that have explicit roles in the level.
-     *
-     * @see #getRoles()
-     * @return The players with explicit roles.
-     */
-    public Set<String> getPlayers() {
-        return getRoles().keySet();
-    }
-
-    /**
-     * Add a player with an explicit role to the level.
-     *
-     * @param playerId The UUID of the player to add.
-     * @param role The role to give the player.
-     */
-    public void addPlayer(String playerId, @Nullable Role role) {
-        if(role == null || role == Role.NONE) {
-            removePlayer(playerId);
-        } else {
-            if(role != Role.OWNER) validatePlayer(playerId);
-            getRoles().put(playerId, role);
-            commit("roles");
-        }
-    }
-
-    /**
-     * Remove a player's explicit role from the level.
-     *
-     * @param playerId The UUID of the player to remove.
-     * @throws IllegalArgumentException If the operation removes the last owner.
-     */
-    public void removePlayer(String playerId) throws IllegalArgumentException {
-        validatePlayer(playerId);
-        if(getRoles().remove(playerId) != null) {
-            commit("roles");
-        }
-        if(getRoles().isEmpty()) {
-            setRoles(null);
-        }
-    }
-
-    /**
-     * Ensure that there is always one owner membership.
-     *
-     * @param playerId The UUID of the player to check.
-     */
-    private void validatePlayer(String playerId) {
-        if(getRoles().entrySet().stream().anyMatch(entry -> !entry.getKey().equals(playerId) && entry.getValue() == Role.OWNER)) {
-            throw new IllegalArgumentException("Level must have at least one owner");
-        }
     }
 
     @Override
@@ -416,7 +405,7 @@ public class Level implements Model {
                + ", locked=" + isLocked()
                + ", default=" + isDefault()
                + ", spawn=" + getSpawn()
-               + ", visibility=" + getVisibility()
+               + ", visibility=" + getStatus()
                + ", roles=" + getRoles() + "}";
     }
 
@@ -426,7 +415,7 @@ public class Level implements Model {
      * @return The default level.
      */
     public static Level createDefault() {
-        return new Level(Bukkit.getWorlds().get(0).getName(), "Lobby", Visibility.PUBLIC, null, null, EnumSet.allOf(Flag.class), true, true);
+        return new Level(Bukkit.getWorlds().get(0).getName(), "Lobby", Status.PUBLIC, null, null, EnumSet.noneOf(Flag.class), true, true);
     }
 
 }

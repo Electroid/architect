@@ -7,7 +7,6 @@ import com.google.gson.annotations.SerializedName;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.UUID;
 
@@ -20,7 +19,7 @@ public class User implements Model {
     private @SerializedName("username") String username;
     private @SerializedName("level_id") String levelId;
 
-    public User(@Nonnull UUID id, @Nonnull String username, @Nullable String levelId) {
+    public User(UUID id, String username, @Nullable String levelId) {
         this.id = id;
         this.username = username;
         this.levelId = levelId;

@@ -27,12 +27,13 @@ import java.util.concurrent.TimeUnit;
  * so they can interact with a current {@link Level}.
  */
 @Singleton
-public class CurrentLevelProvider implements BukkitProvider<Level> {
+public class LevelCurrentProvider implements BukkitProvider<Level> {
 
     private final LevelStore levelStore;
     private final Cache<String, String> consoleContext;
 
-    @Inject CurrentLevelProvider(LevelStore levelStore) {
+    @Inject
+    LevelCurrentProvider(LevelStore levelStore) {
         this.levelStore = levelStore;
         this.consoleContext = CacheBuilder.newBuilder()
                                           .expireAfterWrite(1, TimeUnit.HOURS)

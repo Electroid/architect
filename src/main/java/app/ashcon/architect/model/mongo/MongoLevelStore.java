@@ -3,7 +3,6 @@ package app.ashcon.architect.model.mongo;
 import app.ashcon.architect.level.Level;
 import app.ashcon.architect.level.LevelStore;
 import app.ashcon.architect.util.Zip;
-import app.ashcon.architect.util.conversion.Conversion;
 import com.mongodb.MongoGridFSException;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.gridfs.GridFSBucket;
@@ -13,6 +12,7 @@ import com.mongodb.client.gridfs.GridFSUploadStream;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
+import org.bson.BsonString;
 import org.bukkit.Bukkit;
 
 import javax.annotation.Nullable;
@@ -30,11 +30,23 @@ public class MongoLevelStore extends MongoModelStore<Level> implements LevelStor
 
     private final GridFSBucket bucket;
 
-    @Inject MongoLevelStore(Conversion<Level> conversion, MongoDatabase db) {
+    @Inject MongoLevelStore(MongoDatabase db) {
         super(Level.class, db.getCollection("levels"));
         this.bucket = GridFSBuckets.create(db, "worlds");
         this.collection.createIndex(Indexes.text("name"));
         this.collection.createIndex(Indexes.ascending("default"));
+    }
+
+    @Override
+    public void delete(String id) {
+        super.delete(id);
+        deleteFile(id);
+    }
+
+    private void deleteFile(String id) {
+        try {
+            bucket.delete(new BsonString(id));
+        } catch(MongoGridFSException mgfse) {}
     }
 
     @Override
@@ -73,7 +85,8 @@ public class MongoLevelStore extends MongoModelStore<Level> implements LevelStor
     @Override
     public boolean upload(String id, File source) {
         if(source.isDirectory() && source.listFiles().length > 0) {
-            final GridFSUploadStream upload = bucket.openUploadStream(id);
+            deleteFile(id);
+            final GridFSUploadStream upload = bucket.openUploadStream(new BsonString(id), id);
             try {
                 ZipOutputStream zip = new ZipOutputStream(upload);
                 Zip.compress(source, zip);

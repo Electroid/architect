@@ -1,5 +1,7 @@
 package app.ashcon.architect.util;
 
+import org.apache.commons.io.FileUtils;
+
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -34,7 +36,7 @@ public interface Zip {
             int size;
             byte[] buffer = new byte[2048];
             FileInputStream in = new FileInputStream(file);
-            out.putNextEntry(new ZipEntry(file.getName()));
+            out.putNextEntry(new ZipEntry(file.toString()));
             while((size = in.read(buffer)) > 0) {
                 out.write(buffer, 0, size);
             }
@@ -51,16 +53,10 @@ public interface Zip {
      * @throws IOException
      */
     static void decompress(File dir, ZipInputStream in) throws IOException {
+        FileUtils.deleteDirectory(dir);
         ZipEntry entry;
-        String root = null;
         while((entry = in.getNextEntry()) != null) {
-            String name;
-            if(root == null) {
-                root = entry.getName();
-                name = dir.toString();
-            } else {
-                name = dir.toString() + File.separator + entry.getName().replaceFirst(root, "");
-            }
+            final String name = dir.getParent() + File.separator + entry.getName();
             if(entry.isDirectory()) {
                 continue;
             } else {

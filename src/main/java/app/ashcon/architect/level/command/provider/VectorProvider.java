@@ -16,7 +16,7 @@ public class VectorProvider implements BukkitProvider<Vector> {
 
     @Override
     public String getName() {
-        return "location";
+        return "vector";
     }
 
     @Override
@@ -29,7 +29,7 @@ public class VectorProvider implements BukkitProvider<Vector> {
             }
             return new Vector(components.get(0), components.get(1), components.get(2));
         } catch(NumberFormatException error) {
-            throw new ArgumentException("Expected an (x,y,z) vector, got '" + query + "'", error);
+            throw new ArgumentException("Expected a (x,y,z) vector, got '" + query + "'", error);
         }
     }
 

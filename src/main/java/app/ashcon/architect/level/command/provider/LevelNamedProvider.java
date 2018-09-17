@@ -8,10 +8,10 @@ import app.ashcon.intake.argument.ArgumentException;
 import app.ashcon.intake.argument.CommandArgs;
 import app.ashcon.intake.bukkit.parametric.provider.BukkitProvider;
 import app.ashcon.intake.parametric.ProvisionException;
+import dagger.Reusable;
 import org.bukkit.command.CommandSender;
 
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,12 +19,13 @@ import java.util.stream.Collectors;
 /**
  * Provides {@link Level}s given a query for its name.
  */
-@Singleton
-public class NamedLevelProvider implements BukkitProvider<Level> {
+@Reusable
+public class LevelNamedProvider implements BukkitProvider<Level> {
 
     private final LevelStore levelStore;
 
-    @Inject NamedLevelProvider(LevelStore levelStore) {
+    @Inject
+    LevelNamedProvider(LevelStore levelStore) {
         this.levelStore = levelStore;
     }
 
